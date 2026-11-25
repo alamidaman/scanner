@@ -176,6 +176,11 @@
       display: none !important;
     }
 
+    /* Jarak antara mesej status Visitor dan Rekod Delivery */
+    #deliveryCard {
+      margin-top: 28px;
+    }
+
     .small-note {
       margin-top: 10px;
       text-align: center;
@@ -326,11 +331,8 @@
       </div>
     </div>
 
-    <!-- GLOBAL MESSAGE -->
-    <div id="globalMessage" class="message hidden"></div>
-
     <!-- REKOD DELIVERY -->
-    <div class="card">
+    <div id="deliveryCard" class="card">
       <button id="openDeliveryFormBtn" type="button" class="btn-stop" onclick="toggleDeliveryForm(true)">
         REKOD DELIVERY
       </button>
@@ -357,6 +359,8 @@
       </div>
     </div>
 
+    <!-- GLOBAL MESSAGE -->
+    <div id="globalMessage" class="message hidden"></div>
     <div class="small-note">Alam Idaman Visitor Management System</div>
   </div>
 
