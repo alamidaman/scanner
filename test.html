@@ -349,7 +349,7 @@
         </select>
 
         <label for="deliveryPlate" style="display:block;margin-top:14px;">No. Plate</label>
-        <input id="deliveryPlate" type="text" placeholder="Contoh: ABC1234" autocomplete="off" style="text-transform:uppercase;margin-top:8px;">
+        <input id="deliveryPlate" type="text" placeholder="Contoh: ABC1234" autocomplete="off" oninput="this.value = this.value.toUpperCase();" style="text-transform:uppercase;margin-top:8px;">
 
         <div id="deliveryLicenseArea" class="hidden">
           <label for="deliveryLicensePhoto" style="display:block;margin-top:14px;">Gambar depan lesen memandu</label>
