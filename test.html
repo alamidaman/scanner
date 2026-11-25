@@ -1162,10 +1162,20 @@
           throw new Error(response && response.message ? response.message : 'Rekod delivery gagal disimpan.');
         }
 
-        showDeliveryFormMessage(response.message || 'Rekod delivery berjaya disimpan.', 'success');
+        showDeliveryFormMessage(
+          (response.message || 'Rekod delivery berjaya disimpan.') +
+          ' Halaman akan refresh secara automatik dalam 5 saat.',
+          'success'
+        );
+
         document.getElementById('deliveryCompany').value = '';
         document.getElementById('deliveryPlate').value = '';
         if (photoInput) photoInput.value = '';
+
+        // Refresh hanya selepas rekod delivery berjaya disimpan.
+        window.setTimeout(function() {
+          window.location.reload();
+        }, 5000);
       } catch (error) {
         showDeliveryFormMessage(error.message || 'Rekod delivery gagal disimpan. Sila cuba semula.', 'error');
       } finally {
