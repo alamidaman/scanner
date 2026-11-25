@@ -326,6 +326,21 @@
       </div>
     </div>
 
+    <!-- CARIAN VISITOR -->
+    <div class="card">
+      <div class="section-title">MENCARI VISITOR</div>
+      <label for="visitorSearchInput">Visitor ID</label>
+      <input
+        id="visitorSearchInput"
+        type="text"
+        placeholder="Contoh: VIS-XXXXXXXX"
+        autocomplete="off"
+        style="text-transform:uppercase;margin-top:8px;"
+        onkeydown="if (event.key === 'Enter') searchById();"
+      >
+      <button type="button" onclick="searchById()">CARI VISITOR</button>
+    </div>
+
     <!-- REKOD DELIVERY -->
     <div class="card">
       <button id="openDeliveryFormBtn" type="button" class="btn-stop" onclick="toggleDeliveryForm(true)">
@@ -604,9 +619,20 @@
     ========================================================= */
     
     function searchById() {
-      const input = document.getElementById('visitorIdInput');
-      const id = input.value.trim().toUpperCase();
-    
+      const searchInput = document.getElementById('visitorSearchInput');
+      const hiddenInput = document.getElementById('visitorIdInput');
+      const id = (searchInput ? searchInput.value : hiddenInput.value)
+        .trim()
+        .toUpperCase();
+
+      if (!id) {
+        showGlobalMessage('Sila masukkan Visitor ID.', 'error');
+        if (searchInput) searchInput.focus();
+        return;
+      }
+
+      hiddenInput.value = id;
+
       if (id.startsWith('VIS-')) {
         searchVisitor(id);
       } else if (id.startsWith('OH-')) {
