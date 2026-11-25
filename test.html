@@ -326,31 +326,31 @@
       </div>
     </div>
 
-    <!-- DAFTAR KENDERAAN: diletakkan selepas keputusan QR Scan -->
+    <!-- REKOD DELIVERY -->
     <div class="card">
-      <button id="openNoQrFormBtn" type="button" class="btn-stop" onclick="toggleNoQrForm(true)">
-        DAFTAR KENDERAAN
+      <button id="openDeliveryFormBtn" type="button" class="btn-stop" onclick="toggleDeliveryForm(true)">
+        REKOD DELIVERY
       </button>
 
-      <div id="noQrVehicleForm" class="hidden" style="margin-top:16px;">
-        <div class="section-title">Daftar Kenderaan</div>
+      <div id="deliveryForm" class="hidden" style="margin-top:16px;">
+        <div class="section-title">Rekod Delivery</div>
 
-        <label for="noQrUnit">Unit Rumah</label>
-        <select id="noQrUnit" style="width:100%;padding:13px;border:1px solid #ccc;border-radius:8px;font-size:16px;background:#fff;margin-top:8px;">
-          <option value="">Memuatkan senarai unit...</option>
+        <label for="deliveryCompany">Delivery Company</label>
+        <select id="deliveryCompany" style="width:100%;padding:13px;border:1px solid #ccc;border-radius:8px;font-size:16px;background:#fff;margin-top:8px;">
+          <option value="">Memuatkan senarai syarikat...</option>
         </select>
 
-        <label for="noQrPlate" style="display:block;margin-top:14px;">No. Plate</label>
-        <input id="noQrPlate" type="text" placeholder="Contoh: ABC1234" autocomplete="off" style="text-transform:uppercase;margin-top:8px;">
+        <label for="deliveryPlate" style="display:block;margin-top:14px;">No. Plate</label>
+        <input id="deliveryPlate" type="text" placeholder="Contoh: ABC1234" autocomplete="off" style="text-transform:uppercase;margin-top:8px;">
 
-        <div id="noQrLicenseArea">
-          <label for="noQrLicensePhoto" style="display:block;margin-top:14px;">Gambar depan lesen memandu</label>
-          <input id="noQrLicensePhoto" type="file" accept="image/*" capture="environment" style="margin-top:8px;width:100%;">
+        <div id="deliveryLicenseArea" class="hidden">
+          <label for="deliveryLicensePhoto" style="display:block;margin-top:14px;">Gambar depan lesen memandu</label>
+          <input id="deliveryLicensePhoto" type="file" accept="image/*" capture="environment" style="margin-top:8px;width:100%;">
         </div>
 
-        <div id="noQrFormMessage" class="message hidden"></div>
-        <button id="saveNoQrVehicleBtn" type="button" onclick="saveNoQrVehicle()">SIMPAN PENDAFTARAN</button>
-        <button type="button" class="btn-stop" onclick="toggleNoQrForm(false)">TUTUP</button>
+        <div id="deliveryFormMessage" class="message hidden"></div>
+        <button id="saveDeliveryBtn" type="button" onclick="saveDeliveryRecord()">SIMPAN REKOD</button>
+        <button type="button" class="btn-stop" onclick="toggleDeliveryForm(false)">TUTUP</button>
       </div>
     </div>
 
@@ -416,6 +416,7 @@
     window.addEventListener('load', function() {
       console.log('Visitor Management System ready.');
       loadScannerSettings();
+      loadDeliverySettings();
     });
 
     /* =========================================================
@@ -1028,42 +1029,33 @@
 
 
     /* =========================================================
-       DAFTAR KENDERAAN (TANPA QR)
-       Menggunakan input kamera lesen sedia ada dan aliran upload
-       submitLicenseUpload() yang sama seperti CHECK IN.
+       REKOD DELIVERY
+       Menggunakan aliran kamera dan upload lesen sedia ada.
     ========================================================= */
 
-    function toggleNoQrForm(show) {
-      const form = document.getElementById('noQrVehicleForm');
-      form.classList.toggle('hidden', !show);
+    let registerLicenseRequired = false;
 
+    function toggleDeliveryForm(show) {
+      document.getElementById('deliveryForm').classList.toggle('hidden', !show);
       if (show) {
-        loadNoQrUnits();
-        const licenseArea = document.getElementById('noQrLicenseArea');
-        if (licenseArea) licenseArea.classList.toggle('hidden', !scannerLicenseRequired);
+        loadDeliveryCompanies();
+        loadDeliverySettings();
       }
     }
 
-    function loadNoQrUnits() {
-      const select = document.getElementById('noQrUnit');
-      select.innerHTML = '<option value="">Memuatkan senarai unit...</option>';
-      const callbackName = 'noQrUnitsCallback_' + Date.now();
+    function loadDeliverySettings() {
+      const callbackName = 'registerLicenseSettingsCallback_' + Date.now();
 
       window[callbackName] = function(response) {
         try {
-          if (!response || response.success !== true || !Array.isArray(response.units)) {
-            select.innerHTML = '<option value="">Gagal memuatkan unit rumah</option>';
-            showNoQrFormMessage(response && response.message ? response.message : 'Senarai unit tidak dapat dimuatkan.', 'error');
+          if (!response || response.success !== true) {
+            console.warn('Gagal mendapatkan tetapan Register License.');
             return;
           }
 
-          select.innerHTML = '<option value="">-- Pilih Unit Rumah --</option>';
-          response.units.forEach(function(unit) {
-            const option = document.createElement('option');
-            option.value = unit;
-            option.textContent = unit;
-            select.appendChild(option);
-          });
+          registerLicenseRequired = response.registerLicenseRequired === true;
+          const licenseArea = document.getElementById('deliveryLicenseArea');
+          if (licenseArea) licenseArea.classList.toggle('hidden', !registerLicenseRequired);
         } finally {
           delete window[callbackName];
           const script = document.getElementById(callbackName);
@@ -1071,32 +1063,72 @@
         }
       };
 
-      loadApi('scan_no_plate_units', {}, callbackName);
+      loadApi('register_license_setting', {}, callbackName);
     }
 
-    function showNoQrFormMessage(message, type) {
-      const el = document.getElementById('noQrFormMessage');
+    function loadDeliveryCompanies() {
+      const select = document.getElementById('deliveryCompany');
+      select.innerHTML = '<option value="">Memuatkan senarai syarikat...</option>';
+      const callbackName = 'deliveryCompaniesCallback_' + Date.now();
+
+      window[callbackName] = function(response) {
+        try {
+          if (!response || response.success !== true || !Array.isArray(response.companies)) {
+            select.innerHTML = '<option value="">Gagal memuatkan senarai syarikat</option>';
+            showDeliveryFormMessage(
+              response && response.message ? response.message : 'Senarai Delivery Company tidak dapat dimuatkan.',
+              'error'
+            );
+            return;
+          }
+
+          select.innerHTML = '<option value="">-- Pilih Delivery Company --</option>';
+          response.companies.forEach(function(company) {
+            const option = document.createElement('option');
+            option.value = company;
+            option.textContent = company;
+            select.appendChild(option);
+          });
+
+          if (!response.companies.length) {
+            select.innerHTML = '<option value="">Tiada syarikat. Sila isi tab Delivery Company.</option>';
+          }
+        } finally {
+          delete window[callbackName];
+          const script = document.getElementById(callbackName);
+          if (script) script.remove();
+        }
+      };
+
+      loadApi('delivery_companies', {}, callbackName);
+    }
+
+    function showDeliveryFormMessage(message, type) {
+      const el = document.getElementById('deliveryFormMessage');
       el.textContent = message || '';
       el.className = 'message ' + (type || '') + (message ? '' : ' hidden');
     }
 
-    async function saveNoQrVehicle() {
-      const unit = document.getElementById('noQrUnit').value.trim().toUpperCase();
-      const plate = document.getElementById('noQrPlate').value.trim().toUpperCase();
-      const photoInput = document.getElementById('noQrLicensePhoto');
-      const button = document.getElementById('saveNoQrVehicleBtn');
+    async function saveDeliveryRecord() {
+      const company = document.getElementById('deliveryCompany').value.trim();
+      const plate = document.getElementById('deliveryPlate').value.trim().toUpperCase();
+      const photoInput = document.getElementById('deliveryLicensePhoto');
+      const button = document.getElementById('saveDeliveryBtn');
 
-      if (!unit) {
-        showNoQrFormMessage('Sila pilih Unit Rumah.', 'error');
+      if (!company) {
+        showDeliveryFormMessage('Sila pilih Delivery Company.', 'error');
+        document.getElementById('deliveryCompany').focus();
         return;
       }
+
       if (!plate) {
-        showNoQrFormMessage('Sila masukkan No. Plate.', 'error');
-        document.getElementById('noQrPlate').focus();
+        showDeliveryFormMessage('Sila masukkan No. Plate.', 'error');
+        document.getElementById('deliveryPlate').focus();
         return;
       }
-      if (scannerLicenseRequired && (!photoInput.files || !photoInput.files[0])) {
-        showNoQrFormMessage('Sila ambil gambar depan lesen memandu.', 'error');
+
+      if (registerLicenseRequired && (!photoInput.files || !photoInput.files[0])) {
+        showDeliveryFormMessage('Sila ambil gambar depan lesen memandu.', 'error');
         photoInput.focus();
         return;
       }
@@ -1105,33 +1137,34 @@
       button.textContent = 'SEDANG MENYIMPAN...';
 
       try {
-        const referenceId = 'NQR-' + Date.now();
+        const deliveryId = 'DEL-' + Date.now();
         const payload = {
-          action: 'no_qr_vehicle',
-          referenceId: referenceId,
-          unit: unit,
-          plateNumber: plate,
-          guardName: GUARD_NAME
+          action: 'delivery_record',
+          deliveryId: deliveryId,
+          guardName: GUARD_NAME,
+          companyName: company,
+          plateNumber: plate
         };
 
-        if (scannerLicenseRequired) {
+        if (registerLicenseRequired) {
           payload.imageData = await compressLicenseImage(photoInput.files[0]);
+          payload.mimeType = 'image/jpeg';
         }
 
         const response = await submitLicenseUpload(payload);
         if (!response || response.success !== true) {
-          throw new Error(response && response.message ? response.message : 'Pendaftaran kenderaan gagal.');
+          throw new Error(response && response.message ? response.message : 'Rekod delivery gagal disimpan.');
         }
 
-        showNoQrFormMessage(response.message || 'Pendaftaran kenderaan berjaya.', 'success');
-        document.getElementById('noQrUnit').value = '';
-        document.getElementById('noQrPlate').value = '';
+        showDeliveryFormMessage(response.message || 'Rekod delivery berjaya disimpan.', 'success');
+        document.getElementById('deliveryCompany').value = '';
+        document.getElementById('deliveryPlate').value = '';
         if (photoInput) photoInput.value = '';
       } catch (error) {
-        showNoQrFormMessage(error.message || 'Pendaftaran gagal. Sila cuba semula.', 'error');
+        showDeliveryFormMessage(error.message || 'Rekod delivery gagal disimpan. Sila cuba semula.', 'error');
       } finally {
         button.disabled = false;
-        button.textContent = 'SIMPAN PENDAFTARAN';
+        button.textContent = 'SIMPAN REKOD';
       }
     }
 
