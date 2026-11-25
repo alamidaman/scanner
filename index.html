@@ -176,6 +176,11 @@
       display: none !important;
     }
 
+    /* Jarak antara mesej status Visitor dan Rekod Delivery */
+    #deliveryCard {
+      margin-top: 28px;
+    }
+
     .small-note {
       margin-top: 10px;
       text-align: center;
@@ -206,12 +211,8 @@
       <button id="stopBtn" type="button" class="btn-stop" onclick="stopScanner()" disabled>STOP CAMERA</button>
     </div>
 
-    <!-- MANUAL SEARCH -->
-    <div class="card">
-      <div class="section-title">Manual Visitor ID</div>
-      <input id="visitorIdInput" type="text" placeholder="VIS-20261007-83BE0226" autocomplete="off">      
-      <button type="button" onclick="searchById()">SEARCH VISITOR</button>
-    </div>
+    <!-- Hidden reference field used internally by existing QR/Open House logic -->
+    <input id="visitorIdInput" type="hidden">
     
     <!-- OPEN HOUSE RESULT -->
     <div id="openHouseResult" class="card hidden">
@@ -332,6 +333,35 @@
 
     <!-- GLOBAL MESSAGE -->
     <div id="globalMessage" class="message hidden"></div>
+
+    <!-- REKOD DELIVERY -->
+    <div id="deliveryCard" class="card">
+      <button id="openDeliveryFormBtn" type="button" class="btn-stop" onclick="toggleDeliveryForm(true)">
+        REKOD DELIVERY
+      </button>
+
+      <div id="deliveryForm" class="hidden" style="margin-top:16px;">
+        <div class="section-title">Rekod Delivery</div>
+
+        <label for="deliveryCompany">Delivery Company</label>
+        <select id="deliveryCompany" style="width:100%;padding:13px;border:1px solid #ccc;border-radius:8px;font-size:16px;background:#fff;margin-top:8px;">
+          <option value="">Memuatkan senarai syarikat...</option>
+        </select>
+
+        <label for="deliveryPlate" style="display:block;margin-top:14px;">No. Plate</label>
+        <input id="deliveryPlate" type="text" placeholder="Contoh: ABC1234" autocomplete="off" oninput="this.value = this.value.toUpperCase();" style="text-transform:uppercase;margin-top:8px;">
+
+        <div id="deliveryLicenseArea" class="hidden">
+          <label for="deliveryLicensePhoto" style="display:block;margin-top:14px;">Gambar depan lesen memandu</label>
+          <input id="deliveryLicensePhoto" type="file" accept="image/*" capture="environment" style="margin-top:8px;width:100%;">
+        </div>
+
+        <div id="deliveryFormMessage" class="message hidden"></div>
+        <button id="saveDeliveryBtn" type="button" onclick="saveDeliveryRecord()">SIMPAN REKOD</button>
+        <button type="button" class="btn-stop" onclick="toggleDeliveryForm(false)">TUTUP</button>
+      </div>
+    </div>
+
     <div class="small-note">Alam Idaman Visitor Management System</div>
   </div>
 
@@ -368,9 +398,11 @@
 
           const visitorLicenseArea = document.getElementById('visitorLicenseArea');
           const ohLicenseArea = document.getElementById('ohLicenseArea');
+          const noQrLicenseArea = document.getElementById('noQrLicenseArea');
 
           if (visitorLicenseArea) visitorLicenseArea.classList.toggle('hidden', !scannerLicenseRequired);
           if (ohLicenseArea) ohLicenseArea.classList.toggle('hidden', !scannerLicenseRequired);
+          if (noQrLicenseArea) noQrLicenseArea.classList.toggle('hidden', !scannerLicenseRequired);
 
           console.log('Scanner License Required:', scannerLicenseRequired);
         } finally {
@@ -390,6 +422,7 @@
     window.addEventListener('load', function() {
       console.log('Visitor Management System ready.');
       loadScannerSettings();
+      loadDeliverySettings();
     });
 
     /* =========================================================
@@ -1000,6 +1033,156 @@
       });
     }
 
+
+    /* =========================================================
+       REKOD DELIVERY
+       Menggunakan aliran kamera dan upload lesen sedia ada.
+    ========================================================= */
+
+    let registerLicenseRequired = false;
+
+    function toggleDeliveryForm(show) {
+      document.getElementById('deliveryForm').classList.toggle('hidden', !show);
+      if (show) {
+        loadDeliveryCompanies();
+        loadDeliverySettings();
+      }
+    }
+
+    function loadDeliverySettings() {
+      const callbackName = 'registerLicenseSettingsCallback_' + Date.now();
+
+      window[callbackName] = function(response) {
+        try {
+          if (!response || response.success !== true) {
+            console.warn('Gagal mendapatkan tetapan Register License.');
+            return;
+          }
+
+          registerLicenseRequired = response.registerLicenseRequired === true;
+          const licenseArea = document.getElementById('deliveryLicenseArea');
+          if (licenseArea) licenseArea.classList.toggle('hidden', !registerLicenseRequired);
+        } finally {
+          delete window[callbackName];
+          const script = document.getElementById(callbackName);
+          if (script) script.remove();
+        }
+      };
+
+      loadApi('register_license_setting', {}, callbackName);
+    }
+
+    function loadDeliveryCompanies() {
+      const select = document.getElementById('deliveryCompany');
+      select.innerHTML = '<option value="">Memuatkan senarai syarikat...</option>';
+      const callbackName = 'deliveryCompaniesCallback_' + Date.now();
+
+      window[callbackName] = function(response) {
+        try {
+          if (!response || response.success !== true || !Array.isArray(response.companies)) {
+            select.innerHTML = '<option value="">Gagal memuatkan senarai syarikat</option>';
+            showDeliveryFormMessage(
+              response && response.message ? response.message : 'Senarai Delivery Company tidak dapat dimuatkan.',
+              'error'
+            );
+            return;
+          }
+
+          select.innerHTML = '<option value="">-- Pilih Delivery Company --</option>';
+          response.companies.forEach(function(company) {
+            const option = document.createElement('option');
+            option.value = company;
+            option.textContent = company;
+            select.appendChild(option);
+          });
+
+          if (!response.companies.length) {
+            select.innerHTML = '<option value="">Tiada syarikat. Sila isi tab Delivery Company.</option>';
+          }
+        } finally {
+          delete window[callbackName];
+          const script = document.getElementById(callbackName);
+          if (script) script.remove();
+        }
+      };
+
+      loadApi('delivery_companies', {}, callbackName);
+    }
+
+    function showDeliveryFormMessage(message, type) {
+      const el = document.getElementById('deliveryFormMessage');
+      el.textContent = message || '';
+      el.className = 'message ' + (type || '') + (message ? '' : ' hidden');
+    }
+
+    async function saveDeliveryRecord() {
+      const company = document.getElementById('deliveryCompany').value.trim();
+      const plate = document.getElementById('deliveryPlate').value.trim().toUpperCase();
+      const photoInput = document.getElementById('deliveryLicensePhoto');
+      const button = document.getElementById('saveDeliveryBtn');
+
+      if (!company) {
+        showDeliveryFormMessage('Sila pilih Delivery Company.', 'error');
+        document.getElementById('deliveryCompany').focus();
+        return;
+      }
+
+      if (!plate) {
+        showDeliveryFormMessage('Sila masukkan No. Plate.', 'error');
+        document.getElementById('deliveryPlate').focus();
+        return;
+      }
+
+      if (registerLicenseRequired && (!photoInput.files || !photoInput.files[0])) {
+        showDeliveryFormMessage('Sila ambil gambar depan lesen memandu.', 'error');
+        photoInput.focus();
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'SEDANG MENYIMPAN...';
+
+      try {
+        const deliveryId = 'DEL-' + Date.now();
+        const payload = {
+          action: 'delivery_record',
+          deliveryId: deliveryId,
+          guardName: GUARD_NAME,
+          companyName: company,
+          plateNumber: plate
+        };
+
+        if (registerLicenseRequired) {
+          payload.imageData = await compressLicenseImage(photoInput.files[0]);
+          payload.mimeType = 'image/jpeg';
+        }
+
+        const response = await submitLicenseUpload(payload);
+        if (!response || response.success !== true) {
+          throw new Error(response && response.message ? response.message : 'Rekod delivery gagal disimpan.');
+        }
+
+        showDeliveryFormMessage(
+          (response.message || 'Rekod delivery berjaya disimpan.') +
+          ' Halaman akan refresh secara automatik dalam 5 saat.',
+          'success'
+        );
+
+        document.getElementById('deliveryCompany').value = '';
+        document.getElementById('deliveryPlate').value = '';
+        if (photoInput) photoInput.value = '';
+
+        // Refresh hanya selepas rekod delivery berjaya disimpan.
+        window.setTimeout(function() {
+          window.location.reload();
+        }, 5000);
+      } catch (error) {
+        showDeliveryFormMessage(error.message || 'Rekod delivery gagal disimpan. Sila cuba semula.', 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'SIMPAN REKOD';
+      }
+    }
 
     /* =========================================================
        API JSONP
